@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kestrel Weather Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="title-block">
+        <h1>Kestrel Weather</h1>
+        <p id="station-meta" class="station-meta">Connecting…</p>
+      </div>
+      <div class="controls">
+        <div id="status" class="status status--pending">
+          <span class="status-dot"></span>
+          <span id="status-text">Connecting</span>
+        </div>
+        <div class="unit-toggle" role="group" aria-label="Units">
+          <button id="unit-imperial" class="unit-btn is-active" type="button">
+            °F
+          </button>
+          <button id="unit-metric" class="unit-btn" type="button">°C</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-temp">
+          <span id="hero-temp" class="hero-temp__value">--</span>
+          <span id="hero-temp-unit" class="hero-temp__unit">°F</span>
+        </div>
+        <div class="hero-detail">
+          <div>Feels like <strong id="hero-feels">--</strong></div>
+          <div id="hero-updated" class="hero-updated">—</div>
+        </div>
+      </section>
+
+      <section id="cards" class="cards"></section>
+
+      <p id="error" class="error" hidden></p>
+    </main>
+
+    <footer class="footer">
+      Live data from the Ambient Weather Network. Updates arrive in real time
+      via the station's reporting interval.
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
