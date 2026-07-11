@@ -8,9 +8,9 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: AMBIENT_APPLICATION_KEY
-        sync: false
+        value: 953749d40bc84f48bdbabc1c57298546a0e6e53bc72a4a95bd0e938a97bf1156
       - key: AMBIENT_API_KEY
-        sync: false
+        value: 33f66f6b644143a78879e6832e67f93c25e28309bd9d4fe8a12cfe1a64bb6022
       - key: AMBIENT_DEVICE_MAC
         value: ""
       - key: NODE_VERSION
