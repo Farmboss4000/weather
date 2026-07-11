@@ -10,7 +10,7 @@ services:
       - key: AMBIENT_APPLICATION_KEY
         value: 953749d40bc84f48bdbabc1c57298546a0e6e53bc72a4a95bd0e938a97bf1156
       - key: AMBIENT_API_KEY
-        value: d3aec6b75c1e473db864148979922da490632d1e364141449a0b60eb11e9dd88
+        value: d925fc2e121542dc9f231435cc44a8607c7eb604c92544de8edfca9f07f1c406
       - key: AMBIENT_DEVICE_MAC
         value: ""
       - key: NODE_VERSION
