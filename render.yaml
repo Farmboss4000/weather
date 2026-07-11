@@ -13,5 +13,7 @@ services:
         sync: false
       - key: AMBIENT_DEVICE_MAC
         value: ""
+      - key: AMBIENT_STATION_TZ
+        value: America/Chicago
       - key: NODE_VERSION
         value: "20"

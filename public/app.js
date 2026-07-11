@@ -138,6 +138,70 @@ function render(stateData) {
   }
 }
 
+function formatRainDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+let rainfallData = null;
+
+function renderRainfall(data) {
+  rainfallData = data;
+  const statusEl = el('rainfall-status');
+  const body = el('rainfall-body');
+  if (!statusEl || !body) return;
+
+  if (data.error) {
+    statusEl.textContent = `Error: ${data.error}`;
+  } else if (data.loading && (!data.days || data.days.length === 0)) {
+    statusEl.textContent = 'Loading last 30 days…';
+  } else if (data.updatedAt) {
+    const dt = new Date(data.updatedAt);
+    statusEl.textContent = `Timezone ${data.timezone} · updated ${dt.toLocaleTimeString()}`;
+  } else {
+    statusEl.textContent = '';
+  }
+
+  if (!data.days || data.days.length === 0) {
+    body.innerHTML = `<tr><td colspan="2" class="rainfall-empty">${
+      data.loading ? 'Loading history…' : 'No history available'
+    }</td></tr>`;
+    return;
+  }
+
+  const metric = units === 'metric';
+  const unitLabel = metric ? 'mm' : 'in';
+  const rows = data.days
+    .map((d) => {
+      const val = metric ? inToMm(d.rainfall_in) : d.rainfall_in;
+      const display = d.rainfall_in > 0 ? r(val, 2) : '0';
+      const cls = d.rainfall_in > 0 ? 'rainfall-row--wet' : 'rainfall-row--dry';
+      return `<tr class="${cls}"><td>${formatRainDate(d.date)}</td><td class="rain-value">${display} ${unitLabel}</td></tr>`;
+    })
+    .join('');
+  body.innerHTML = rows;
+}
+
+async function fetchRainfall() {
+  try {
+    const resp = await fetch('/api/rainfall');
+    if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`);
+    const data = await resp.json();
+    renderRainfall(data);
+  } catch (err) {
+    console.error('Failed to fetch rainfall history', err);
+    const body = el('rainfall-body');
+    if (body) {
+      body.innerHTML = `<tr><td colspan="2" class="rainfall-empty">Failed to load: ${err.message}</td></tr>`;
+    }
+  }
+}
+
 let latest = null;
 
 function setUnits(next) {
@@ -146,6 +210,7 @@ function setUnits(next) {
   el('unit-imperial').classList.toggle('is-active', units === 'imperial');
   el('unit-metric').classList.toggle('is-active', units === 'metric');
   if (latest) render(latest);
+  if (rainfallData) renderRainfall(rainfallData);
 }
 
 el('unit-imperial').addEventListener('click', () => setUnits('imperial'));
@@ -163,7 +228,6 @@ function connect() {
     }
   };
   source.onerror = () => {
-    // EventSource auto-reconnects; reflect the gap in the UI meanwhile.
     if (latest) {
       latest.realtimeConnected = false;
       render(latest);
@@ -172,3 +236,5 @@ function connect() {
 }
 
 connect();
+fetchRainfall();
+setInterval(fetchRainfall, 30 * 1000);

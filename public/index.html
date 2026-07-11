@@ -10,7 +10,7 @@
     <header class="topbar">
       <div class="title-block">
         <h1>Kestrel Weather</h1>
-        <p id="station-meta" class="station-meta">Connecting…</p>
+        <p id="station-meta" class="station-meta">Connecting...</p>
       </div>
       <div class="controls">
         <div id="status" class="status status--pending">
@@ -39,6 +39,26 @@
       </section>
 
       <section id="cards" class="cards"></section>
+
+      <section id="rainfall" class="rainfall-section">
+        <div class="rainfall-header">
+          <h2>Daily Rainfall — Past 30 Days</h2>
+          <span id="rainfall-status" class="rainfall-status"></span>
+        </div>
+        <div class="rainfall-scroll">
+          <table id="rainfall-table" class="rainfall-table" aria-label="Daily rainfall for the past 30 days">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col" class="rain-value">Rainfall</th>
+              </tr>
+            </thead>
+            <tbody id="rainfall-body">
+              <tr><td colspan="2" class="rainfall-empty">Loading history…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <p id="error" class="error" hidden></p>
     </main>
