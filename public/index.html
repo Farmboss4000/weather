@@ -3,34 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kestrel Weather Dashboard</title>
+    <title>Stoebner Farms Weather Report</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
-      <div class="title-block">
-        <h1>Kestrel Weather</h1>
-        <p id="station-meta" class="station-meta">Connecting...</p>
-      </div>
-      <div class="controls">
-        <div id="status" class="status status--pending">
-          <span class="status-dot"></span>
-          <span id="status-text">Connecting</span>
+      <div class="topbar-inner">
+        <div class="title-block">
+          <h1>Stoebner Farms Weather Report</h1>
+          <p id="station-meta" class="station-meta">Connecting...</p>
         </div>
-        <div class="unit-toggle" role="group" aria-label="Units">
-          <button id="unit-imperial" class="unit-btn is-active" type="button">
-            °F
-          </button>
-          <button id="unit-metric" class="unit-btn" type="button">°C</button>
+        <div class="controls">
+          <div id="status" class="status status--pending">
+            <span class="status-dot"></span>
+            <span id="status-text">Connecting</span>
+          </div>
+          <div class="unit-toggle" role="group" aria-label="Units">
+            <button id="unit-imperial" class="unit-btn is-active" type="button">
+              °F
+            </button>
+            <button id="unit-metric" class="unit-btn" type="button">°C</button>
+          </div>
         </div>
       </div>
     </header>
 
     <main>
       <section id="forecast" class="forecast-section">
-        <div class="forecast-header">
+        <div class="section-header">
           <h2>7-Day Forecast</h2>
-          <span id="forecast-status" class="forecast-status"></span>
+          <span id="forecast-status" class="section-status"></span>
         </div>
         <div id="forecast-grid" class="forecast-grid">
           <div class="forecast-empty">Loading forecast…</div>
@@ -38,22 +40,30 @@
       </section>
 
       <section class="hero">
-        <div class="hero-temp">
-          <span id="hero-temp" class="hero-temp__value">--</span>
-          <span id="hero-temp-unit" class="hero-temp__unit">°F</span>
+        <div class="hero-main">
+          <div class="hero-temp">
+            <span id="hero-temp" class="hero-temp__value">--</span>
+            <span id="hero-temp-unit" class="hero-temp__unit">°F</span>
+          </div>
+          <div class="hero-condition">Current Conditions</div>
         </div>
         <div class="hero-detail">
-          <div>Feels like <strong id="hero-feels">--</strong></div>
+          <div class="hero-feels">Feels like <strong id="hero-feels">--</strong></div>
           <div id="hero-updated" class="hero-updated">—</div>
         </div>
       </section>
 
-      <section id="cards" class="cards"></section>
+      <section class="module">
+        <div class="section-header">
+          <h2>Conditions</h2>
+        </div>
+        <div id="cards" class="cards"></div>
+      </section>
 
-      <section id="rainfall" class="rainfall-section">
-        <div class="rainfall-header">
+      <section id="rainfall" class="module">
+        <div class="section-header">
           <h2>Daily Rainfall — Past 30 Days</h2>
-          <span id="rainfall-status" class="rainfall-status"></span>
+          <span id="rainfall-status" class="section-status"></span>
         </div>
         <div class="rainfall-scroll">
           <table id="rainfall-table" class="rainfall-table" aria-label="Daily rainfall for the past 30 days">
@@ -74,7 +84,7 @@
     </main>
 
     <footer class="footer">
-      Live data from the Ambient Weather Network. Forecast from Open-Meteo.
+      <span>Live data from the Ambient Weather Network. Forecast from Open-Meteo.</span>
     </footer>
 
     <script src="app.js"></script>
