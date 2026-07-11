@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: kestrel-weather-dashboard
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: AMBIENT_APPLICATION_KEY
+        sync: false
+      - key: AMBIENT_API_KEY
+        sync: false
+      - key: AMBIENT_DEVICE_MAC
+        value: ""
+      - key: NODE_VERSION
+        value: "20"

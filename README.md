@@ -7,12 +7,26 @@ A small Node.js server holds your API credentials, maintains a persistent
 realtime socket to the Ambient Weather Network, and relays updates to the
 browser over Server-Sent Events. Your keys never reach the client.
 
-## Setup
+## Deploy to Render (public URL, free tier)
 
-1. **Get your keys** at <https://ambientweather.net> → *Account*:
-   - **Application Key** — created under the developer section; identifies
+1. Sign in at <https://render.com> with your GitHub account.
+2. Click **New +** -> **Blueprint**, select this repo (`Farmboss4000/weather`)
+   and this branch. Render reads `render.yaml` and proposes the service.
+3. When prompted, fill in **`AMBIENT_APPLICATION_KEY`** and
+   **`AMBIENT_API_KEY`** with your Ambient Weather credentials. Leave
+   `AMBIENT_DEVICE_MAC` blank unless you want to pin to a specific station.
+4. Click **Apply** - Render builds and starts the service and gives you a
+   `https://<name>.onrender.com` public URL.
+
+Free-tier services sleep after 15 min of inactivity; the first request wakes
+them (a few-second cold start).
+
+## Local setup
+
+1. **Get your keys** at <https://ambientweather.net> -> *Account*:
+   - **Application Key** - created under the developer section; identifies
      this app.
-   - **API Key** — grants access to your station's data.
+   - **API Key** - grants access to your station's data.
 
    Your Kestrel must already be uploading to the Ambient Weather Network
    (configured in the Kestrel app / via the WeatherFlow/Ambient bridge for
@@ -47,11 +61,11 @@ browser over Server-Sent Events. Your keys never reach the client.
 
 ## How it works
 
-- `server.js` — Express server. Connects to `rt2.ambientweather.net` via
+- `server.js` - Express server. Connects to `rt2.ambientweather.net` via
   Socket.IO, subscribes with your API key, and pushes every reading to
   connected browsers through `/api/stream` (SSE). A REST poll every 5
   minutes acts as a safety net if the socket goes quiet.
-- `public/` — zero-dependency dashboard: live tiles for temperature, wind,
+- `public/` - zero-dependency dashboard: live tiles for temperature, wind,
   humidity, pressure, rain, solar/UV, and more, with an imperial/metric
   toggle and a live-connection indicator.
 
