@@ -14,6 +14,7 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const REST_URL = 'https://rt.ambientweather.net/v1/devices';
 const REALTIME_URL = 'https://rt2.ambientweather.net';
+const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 
 const hasKeys = Boolean(APP_KEY && API_KEY);
 
@@ -32,6 +33,13 @@ const rainfall = {
   error: null,
   loading: false,
   timezone: STATION_TZ,
+};
+
+const forecast = {
+  days: [],
+  updatedAt: null,
+  error: null,
+  loading: false,
 };
 
 const sseClients = new Set();
@@ -57,9 +65,23 @@ function matchesDevice(mac) {
   return String(mac).toLowerCase() === DEVICE_MAC.toLowerCase();
 }
 
+function extractCoords(info) {
+  const geo = info?.coords?.geo;
+  if (geo && Array.isArray(geo.coordinates) && geo.coordinates.length === 2) {
+    const [lng, lat] = geo.coordinates;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+  const c = info?.coords?.coords;
+  if (c && Number.isFinite(c.lat) && Number.isFinite(c.lon)) {
+    return { lat: c.lat, lng: c.lon };
+  }
+  return null;
+}
+
 function applyReading(mac, info, reading) {
   if (!reading) return;
   if (!matchesDevice(mac)) return;
+  const coords = extractCoords(info);
   state.device = {
     macAddress: mac,
     name:
@@ -71,6 +93,7 @@ function applyReading(mac, info, reading) {
       info?.coords?.location ||
       info?.location ||
       null,
+    coords,
   };
   state.data = reading;
   state.updatedAt = new Date(
@@ -79,6 +102,7 @@ function applyReading(mac, info, reading) {
   state.lastError = null;
   broadcast();
   maybeStartRainfallRefresh();
+  maybeStartForecastRefresh();
 }
 
 async function fetchRest() {
@@ -133,7 +157,7 @@ async function fetchDeviceHistory(mac, endDate, limit = 288) {
     const resp = await fetch(url, { headers: { Accept: 'application/json' } });
     if (resp.ok) return resp.json();
     if (resp.status === 429 && attempt < 3) {
-      const wait = 5000 * Math.pow(2, attempt); // 5s, 10s, 20s
+      const wait = 5000 * Math.pow(2, attempt);
       console.warn(`[rainfall] 429 from Ambient, backing off ${wait}ms`);
       await sleep(wait);
       continue;
@@ -185,7 +209,7 @@ async function refreshRainfallHistory() {
 
       if (!Number.isFinite(earliest) || earliest <= cutoff) break;
       endDate = new Date(earliest - 1000);
-      await sleep(1300); // headroom over Ambient's 1 req/sec limit
+      await sleep(1300);
     }
 
     const days = [];
@@ -197,9 +221,7 @@ async function refreshRainfallHistory() {
     }
     rainfall.days = days;
     rainfall.updatedAt = new Date().toISOString();
-    rainfall.error = batchError
-      ? `Partial result: ${batchError}`
-      : null;
+    rainfall.error = batchError ? `Partial result: ${batchError}` : null;
     console.log(
       `[rainfall] refreshed ${days.length} days from ${calls} API call(s)` +
         (batchError ? ` (partial: ${batchError})` : '')
@@ -218,10 +240,60 @@ function maybeStartRainfallRefresh() {
   const mac = state.device?.macAddress || DEVICE_MAC;
   if (!mac || !hasKeys) return;
   rainfallInitialized = true;
-  // Delay first call so it doesn't collide with the /devices fetch
-  // that just landed us here (Ambient enforces ~1 req/sec).
   setTimeout(refreshRainfallHistory, 3000);
   setInterval(refreshRainfallHistory, 60 * 60 * 1000);
+}
+
+async function fetchForecast(lat, lng) {
+  if (forecast.loading) return;
+  forecast.loading = true;
+  try {
+    const params = new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lng),
+      daily:
+        'weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum',
+      timezone: 'auto',
+      forecast_days: '7',
+      temperature_unit: 'fahrenheit',
+      precipitation_unit: 'inch',
+      windspeed_unit: 'mph',
+    });
+    const resp = await fetch(`${FORECAST_URL}?${params.toString()}`);
+    if (!resp.ok) throw new Error(`Forecast endpoint responded ${resp.status}`);
+    const data = await resp.json();
+    const d = data.daily || {};
+    const n = d.time?.length ?? 0;
+    const days = [];
+    for (let i = 0; i < n; i++) {
+      days.push({
+        date: d.time[i],
+        code: d.weathercode?.[i] ?? null,
+        tempMaxF: d.temperature_2m_max?.[i] ?? null,
+        tempMinF: d.temperature_2m_min?.[i] ?? null,
+        precipIn: d.precipitation_sum?.[i] ?? 0,
+      });
+    }
+    forecast.days = days;
+    forecast.updatedAt = new Date().toISOString();
+    forecast.error = null;
+    console.log(`[forecast] refreshed ${days.length} day(s)`);
+  } catch (err) {
+    forecast.error = err.message;
+    console.error('[forecast] fetch failed:', err.message);
+  } finally {
+    forecast.loading = false;
+  }
+}
+
+let forecastInitialized = false;
+function maybeStartForecastRefresh() {
+  if (forecastInitialized) return;
+  const coords = state.device?.coords;
+  if (!coords) return;
+  forecastInitialized = true;
+  fetchForecast(coords.lat, coords.lng);
+  setInterval(() => fetchForecast(coords.lat, coords.lng), 30 * 60 * 1000);
 }
 
 function startRealtime() {
@@ -277,6 +349,16 @@ app.get('/api/rainfall', (req, res) => {
     loading: rainfall.loading,
     timezone: rainfall.timezone,
     error: rainfall.error,
+  });
+});
+
+app.get('/api/forecast', (req, res) => {
+  res.json({
+    days: forecast.days,
+    updatedAt: forecast.updatedAt,
+    loading: forecast.loading,
+    error: forecast.error,
+    hasCoords: Boolean(state.device?.coords),
   });
 });
 

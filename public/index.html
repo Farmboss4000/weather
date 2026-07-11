@@ -27,6 +27,16 @@
     </header>
 
     <main>
+      <section id="forecast" class="forecast-section">
+        <div class="forecast-header">
+          <h2>7-Day Forecast</h2>
+          <span id="forecast-status" class="forecast-status"></span>
+        </div>
+        <div id="forecast-grid" class="forecast-grid">
+          <div class="forecast-empty">Loading forecast…</div>
+        </div>
+      </section>
+
       <section class="hero">
         <div class="hero-temp">
           <span id="hero-temp" class="hero-temp__value">--</span>
@@ -64,8 +74,7 @@
     </main>
 
     <footer class="footer">
-      Live data from the Ambient Weather Network. Updates arrive in real time
-      via the station's reporting interval.
+      Live data from the Ambient Weather Network. Forecast from Open-Meteo.
     </footer>
 
     <script src="app.js"></script>

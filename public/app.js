@@ -54,9 +54,7 @@ function rain(inch) {
 
 function buildCards(d) {
   const cards = [];
-  const add = (label, m, sub) =>
-    cards.push({ label, value: m.value, unit: m.unit, sub });
-
+  const add = (label, m, sub) => cards.push({ label, value: m.value, unit: m.unit, sub });
   if (isNum(d.humidity)) add('Humidity', { value: r(d.humidity, 0), unit: '%' });
   if (isNum(d.windspeedmph)) {
     add('Wind', speed(d.windspeedmph), `${compass(d.winddir)} (${r(d.winddir, 0)}°)`);
@@ -66,23 +64,19 @@ function buildCards(d) {
   if (isNum(d.baromrelin)) add('Pressure', pressure(d.baromrelin));
   if (isNum(d.hourlyrainin)) add('Rain (1h)', rain(d.hourlyrainin));
   if (isNum(d.dailyrainin)) add('Rain (today)', rain(d.dailyrainin));
-  if (isNum(d.solarradiation))
-    add('Solar', { value: r(d.solarradiation, 0), unit: 'W/m²' });
+  if (isNum(d.solarradiation)) add('Solar', { value: r(d.solarradiation, 0), unit: 'W/m²' });
   if (isNum(d.uv)) add('UV Index', { value: r(d.uv, 0), unit: '' });
   if (isNum(d.tempinf)) add('Indoor Temp', temp(d.tempinf));
-  if (isNum(d.humidityin))
-    add('Indoor Hum.', { value: r(d.humidityin, 0), unit: '%' });
+  if (isNum(d.humidityin)) add('Indoor Hum.', { value: r(d.humidityin, 0), unit: '%' });
   if (isNum(d.maxdailygust)) add('Max Gust Today', speed(d.maxdailygust));
   return cards;
 }
 
 function render(stateData) {
   const errEl = el('error');
-
   if (!stateData.configured) {
     errEl.hidden = false;
-    errEl.textContent =
-      'Server is not configured: add AMBIENT_APPLICATION_KEY and AMBIENT_API_KEY to your .env file and restart.';
+    errEl.textContent = 'Server is not configured: add AMBIENT_APPLICATION_KEY and AMBIENT_API_KEY to your .env file and restart.';
   } else if (stateData.lastError) {
     errEl.hidden = false;
     errEl.textContent = stateData.lastError;
@@ -138,13 +132,110 @@ function render(stateData) {
   }
 }
 
+function weatherEmoji(code) {
+  if (code == null) return '';
+  if (code === 0) return '☀️';
+  if (code >= 1 && code <= 2) return '🌤️';
+  if (code === 3) return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if (code >= 51 && code <= 57) return '🌦️';
+  if (code >= 61 && code <= 67) return '🌧️';
+  if (code >= 71 && code <= 77) return '❄️';
+  if (code >= 80 && code <= 82) return '🌧️';
+  if (code >= 85 && code <= 86) return '🌨️';
+  if (code === 95) return '⛈️';
+  if (code === 96 || code === 99) return '⛈️';
+  return '';
+}
+
+function todayLocalISO() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+let forecastData = null;
+
+function renderForecast(data) {
+  forecastData = data;
+  const grid = el('forecast-grid');
+  const status = el('forecast-status');
+  if (!grid || !status) return;
+
+  if (data.error) {
+    status.textContent = `Error: ${data.error}`;
+  } else if (data.updatedAt) {
+    const dt = new Date(data.updatedAt);
+    status.textContent = `Open-Meteo · updated ${dt.toLocaleTimeString()}`;
+  } else if (!data.hasCoords) {
+    status.textContent = 'Waiting for station coordinates…';
+  } else {
+    status.textContent = '';
+  }
+
+  if (!data.days || data.days.length === 0) {
+    grid.innerHTML = `<div class="forecast-empty">${
+      data.loading || !data.hasCoords ? 'Loading forecast…' : 'Forecast unavailable'
+    }</div>`;
+    return;
+  }
+
+  const metric = units === 'metric';
+  const today = todayLocalISO();
+  const html = data.days
+    .map((d) => {
+      const [y, m, dd] = d.date.split('-').map(Number);
+      const dt = new Date(y, m - 1, dd);
+      const isToday = d.date === today;
+      const label = isToday
+        ? 'Today'
+        : dt.toLocaleDateString(undefined, { weekday: 'short' });
+      const hi = isNum(d.tempMaxF)
+        ? (metric ? r(fToC(d.tempMaxF), 0) : r(d.tempMaxF, 0))
+        : '--';
+      const lo = isNum(d.tempMinF)
+        ? (metric ? r(fToC(d.tempMinF), 0) : r(d.tempMinF, 0))
+        : '--';
+      const precipVal = metric ? inToMm(d.precipIn) : d.precipIn;
+      const precip =
+        d.precipIn > 0.01
+          ? metric
+            ? `${r(precipVal, 1)} mm`
+            : `${r(precipVal, 2)} in`
+          : '';
+      return `
+        <div class="forecast-day ${isToday ? 'forecast-day--today' : ''}">
+          <div class="forecast-day__label">${label}</div>
+          <div class="forecast-day__icon">${weatherEmoji(d.code)}</div>
+          <div class="forecast-day__temps">
+            <span class="hi">${hi}°</span>
+            <span class="lo">${lo}°</span>
+          </div>
+          <div class="forecast-day__precip ${precip ? 'has-rain' : ''}">${precip}</div>
+        </div>`;
+    })
+    .join('');
+  grid.innerHTML = html;
+}
+
+async function fetchForecast() {
+  try {
+    const resp = await fetch('/api/forecast');
+    if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`);
+    const data = await resp.json();
+    renderForecast(data);
+  } catch (err) {
+    console.error('Failed to fetch forecast', err);
+  }
+}
+
 function formatRainDate(iso) {
   const [y, m, d] = iso.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   return dt.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
+    weekday: 'short', month: 'short', day: 'numeric',
   });
 }
 
@@ -210,6 +301,7 @@ function setUnits(next) {
   el('unit-imperial').classList.toggle('is-active', units === 'imperial');
   el('unit-metric').classList.toggle('is-active', units === 'metric');
   if (latest) render(latest);
+  if (forecastData) renderForecast(forecastData);
   if (rainfallData) renderRainfall(rainfallData);
 }
 
@@ -237,4 +329,6 @@ function connect() {
 
 connect();
 fetchRainfall();
+fetchForecast();
 setInterval(fetchRainfall, 30 * 1000);
+setInterval(fetchForecast, 60 * 1000);
