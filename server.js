@@ -119,6 +119,8 @@ function localDay(msEpoch) {
   return dayFmt.format(new Date(msEpoch));
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function fetchDeviceHistory(mac, endDate, limit = 288) {
   const url =
     `${REST_URL}/${encodeURIComponent(mac)}` +
@@ -126,9 +128,19 @@ async function fetchDeviceHistory(mac, endDate, limit = 288) {
     `&apiKey=${encodeURIComponent(API_KEY)}` +
     `&endDate=${encodeURIComponent(endDate.toISOString())}` +
     `&limit=${limit}`;
-  const resp = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!resp.ok) throw new Error(`Ambient history endpoint returned ${resp.status}`);
-  return resp.json();
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (resp.ok) return resp.json();
+    if (resp.status === 429 && attempt < 3) {
+      const wait = 5000 * Math.pow(2, attempt); // 5s, 10s, 20s
+      console.warn(`[rainfall] 429 from Ambient, backing off ${wait}ms`);
+      await sleep(wait);
+      continue;
+    }
+    throw new Error(`Ambient history endpoint returned ${resp.status}`);
+  }
+  throw new Error('Ambient history: retries exhausted after repeated 429s');
 }
 
 async function refreshRainfallHistory() {
@@ -142,10 +154,18 @@ async function refreshRainfallHistory() {
   const dayMax = new Map();
   let endDate = new Date();
   let calls = 0;
+  let batchError = null;
 
   try {
     while (calls < 40) {
-      const readings = await fetchDeviceHistory(mac, endDate, 288);
+      let readings;
+      try {
+        readings = await fetchDeviceHistory(mac, endDate, 288);
+      } catch (err) {
+        batchError = err.message;
+        console.error(`[rainfall] batch ${calls + 1} failed:`, err.message);
+        break;
+      }
       calls++;
       if (!Array.isArray(readings) || readings.length === 0) break;
 
@@ -165,8 +185,7 @@ async function refreshRainfallHistory() {
 
       if (!Number.isFinite(earliest) || earliest <= cutoff) break;
       endDate = new Date(earliest - 1000);
-      // Ambient enforces ~1 request/second.
-      await new Promise((r) => setTimeout(r, 1100));
+      await sleep(1300); // headroom over Ambient's 1 req/sec limit
     }
 
     const days = [];
@@ -178,9 +197,12 @@ async function refreshRainfallHistory() {
     }
     rainfall.days = days;
     rainfall.updatedAt = new Date().toISOString();
-    rainfall.error = null;
+    rainfall.error = batchError
+      ? `Partial result: ${batchError}`
+      : null;
     console.log(
-      `[rainfall] refreshed ${days.length} days from ${calls} API call(s)`
+      `[rainfall] refreshed ${days.length} days from ${calls} API call(s)` +
+        (batchError ? ` (partial: ${batchError})` : '')
     );
   } catch (err) {
     rainfall.error = err.message;
@@ -196,7 +218,9 @@ function maybeStartRainfallRefresh() {
   const mac = state.device?.macAddress || DEVICE_MAC;
   if (!mac || !hasKeys) return;
   rainfallInitialized = true;
-  refreshRainfallHistory();
+  // Delay first call so it doesn't collide with the /devices fetch
+  // that just landed us here (Ambient enforces ~1 req/sec).
+  setTimeout(refreshRainfallHistory, 3000);
   setInterval(refreshRainfallHistory, 60 * 60 * 1000);
 }
 
