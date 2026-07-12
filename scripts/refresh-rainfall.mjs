@@ -18,6 +18,7 @@ if (!APP_KEY || !API_KEY) {
 }
 
 const REST = 'https://rt.ambientweather.net/v1/devices';
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const dayFmt = new Intl.DateTimeFormat('en-CA', {
   timeZone: STATION_TZ,
@@ -72,47 +73,60 @@ async function main() {
   console.log(`Using device: ${mac} (${device.info?.name || 'unnamed'})`);
   await sleep(1500);
 
-  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const dayMax = new Map();
-  let endDate = new Date();
+  const allReadings = new Map(); // dateutc -> reading
+  const now = Date.now();
   let calls = 0;
 
-  while (calls < 40) {
+  // Fetch 30 fixed 1-day windows so coverage is dense regardless of the
+  // station's reporting frequency. On a 5-min-reporting station this gives
+  // ~30 non-overlapping days at full resolution; on sparse stations it gives
+  // heavy overlap that dedupes but keeps recent-day density high.
+  for (let i = 0; i < 30; i++) {
+    const endDate = new Date(now + DAY_MS - i * DAY_MS);
     let readings;
     try {
       readings = await fetchBatch(mac, endDate, 288);
     } catch (err) {
-      console.error(`Batch ${calls + 1} failed: ${err.message}`);
+      console.error(`Batch ${i + 1} failed: ${err.message}`);
       break;
     }
     calls++;
-    if (!Array.isArray(readings) || readings.length === 0) break;
-
-    let earliest = Infinity;
-    for (const r of readings) {
-      const dt =
-        typeof r.dateutc === 'number'
-          ? r.dateutc
-          : new Date(r.date).getTime();
-      if (!Number.isFinite(dt)) continue;
-      if (dt < earliest) earliest = dt;
-      if (typeof r.dailyrainin !== 'number') continue;
-      const day = localDay(dt);
-      const prev = dayMax.get(day) ?? 0;
-      if (r.dailyrainin > prev) dayMax.set(day, r.dailyrainin);
+    if (Array.isArray(readings)) {
+      let added = 0;
+      for (const r of readings) {
+        const dt =
+          typeof r.dateutc === 'number'
+            ? r.dateutc
+            : new Date(r.date).getTime();
+        if (Number.isFinite(dt) && !allReadings.has(dt)) {
+          allReadings.set(dt, r);
+          added++;
+        }
+      }
+      console.log(
+        `Batch ${i + 1}/${30} endDate=${endDate.toISOString()}: ` +
+          `${readings.length} readings, ${added} new (total ${allReadings.size})`
+      );
     }
-    console.log(
-      `Batch ${calls}: ${readings.length} readings, earliest ${new Date(earliest).toISOString()}`
-    );
-    if (!Number.isFinite(earliest) || earliest <= cutoff) break;
-    endDate = new Date(earliest - 1000);
-    await sleep(1300);
+    if (i < 29) await sleep(1300);
+  }
+
+  // Aggregate max(dailyrainin) per station-local day.
+  const dayMax = new Map();
+  for (const r of allReadings.values()) {
+    if (typeof r.dailyrainin !== 'number') continue;
+    const dt =
+      typeof r.dateutc === 'number'
+        ? r.dateutc
+        : new Date(r.date).getTime();
+    const day = localDay(dt);
+    const prev = dayMax.get(day) ?? 0;
+    if (r.dailyrainin > prev) dayMax.set(day, r.dailyrainin);
   }
 
   const days = [];
-  const now = Date.now();
   for (let i = 0; i < 30; i++) {
-    const day = localDay(now - i * 24 * 60 * 60 * 1000);
+    const day = localDay(now - i * DAY_MS);
     const val = dayMax.get(day) ?? 0;
     days.push({ date: day, rainfall_in: Number(val.toFixed(3)) });
   }
@@ -131,7 +145,7 @@ async function main() {
     'utf-8'
   );
   console.log(
-    `Wrote data/rainfall.json (${days.length} days from ${calls} API call(s))`
+    `Wrote data/rainfall.json (${days.length} days from ${allReadings.size} unique readings across ${calls} calls)`
   );
 }
 

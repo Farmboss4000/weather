@@ -200,48 +200,57 @@ async function refreshRainfallHistory() {
   if (!mac) return;
 
   rainfall.loading = true;
-  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const dayMax = new Map();
-  let endDate = new Date();
-  let calls = 0;
+  const allReadings = new Map(); // dateutc -> reading
   let batchError = null;
+  let calls = 0;
+  const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
 
   try {
-    while (calls < 40) {
+    // Fetch 30 fixed 1-day windows. Each batch returns the most recent 288
+    // readings before endDate. This guarantees dense coverage across 30 days
+    // regardless of station reporting frequency.
+    for (let i = 0; i < 30; i++) {
+      const endDate = new Date(now + DAY_MS - i * DAY_MS);
       let readings;
       try {
         readings = await fetchDeviceHistory(mac, endDate, 288);
       } catch (err) {
         batchError = err.message;
-        console.error(`[rainfall] batch ${calls + 1} failed:`, err.message);
+        console.error(`[rainfall] batch ${i + 1} failed:`, err.message);
         break;
       }
       calls++;
-      if (!Array.isArray(readings) || readings.length === 0) break;
-
-      let earliest = Infinity;
-      for (const r of readings) {
-        const dt =
-          typeof r.dateutc === 'number'
-            ? r.dateutc
-            : new Date(r.date).getTime();
-        if (!Number.isFinite(dt)) continue;
-        if (dt < earliest) earliest = dt;
-        if (typeof r.dailyrainin !== 'number') continue;
-        const day = localDay(dt);
-        const prev = dayMax.get(day) ?? 0;
-        if (r.dailyrainin > prev) dayMax.set(day, r.dailyrainin);
+      if (Array.isArray(readings)) {
+        for (const r of readings) {
+          const dt =
+            typeof r.dateutc === 'number'
+              ? r.dateutc
+              : new Date(r.date).getTime();
+          if (Number.isFinite(dt) && !allReadings.has(dt)) {
+            allReadings.set(dt, r);
+          }
+        }
       }
+      if (i < 29) await sleep(1300);
+    }
 
-      if (!Number.isFinite(earliest) || earliest <= cutoff) break;
-      endDate = new Date(earliest - 1000);
-      await sleep(1300);
+    // Aggregate max(dailyrainin) per station-local day.
+    const dayMax = new Map();
+    for (const r of allReadings.values()) {
+      if (typeof r.dailyrainin !== 'number') continue;
+      const dt =
+        typeof r.dateutc === 'number'
+          ? r.dateutc
+          : new Date(r.date).getTime();
+      const day = localDay(dt);
+      const prev = dayMax.get(day) ?? 0;
+      if (r.dailyrainin > prev) dayMax.set(day, r.dailyrainin);
     }
 
     const days = [];
-    const now = Date.now();
     for (let i = 0; i < 30; i++) {
-      const day = localDay(now - i * 24 * 60 * 60 * 1000);
+      const day = localDay(now - i * DAY_MS);
       const val = dayMax.get(day) ?? 0;
       days.push({ date: day, rainfall_in: Number(val.toFixed(3)) });
     }
@@ -250,7 +259,7 @@ async function refreshRainfallHistory() {
     rainfall.error = batchError ? `Partial result: ${batchError}` : null;
     rainfall.source = 'runtime';
     console.log(
-      `[rainfall] refreshed ${days.length} days from ${calls} API call(s)` +
+      `[rainfall] refreshed ${days.length} days from ${allReadings.size} unique readings across ${calls} call(s)` +
         (batchError ? ` (partial: ${batchError})` : '')
     );
   } catch (err) {
