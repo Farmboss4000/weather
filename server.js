@@ -11,14 +11,20 @@ const APP_KEY = process.env.AMBIENT_APPLICATION_KEY?.trim();
 const API_KEY = process.env.AMBIENT_API_KEY?.trim();
 const DEVICE_MAC = process.env.AMBIENT_DEVICE_MAC?.trim() || null;
 const STATION_TZ = process.env.AMBIENT_STATION_TZ?.trim() || 'UTC';
+const TEMPSTICK_KEY = process.env.TEMPSTICK_API_KEY?.trim();
+const TEMPSTICK_UNIT = (process.env.TEMPSTICK_UNIT || 'fahrenheit')
+  .trim()
+  .toLowerCase();
 const PORT = Number(process.env.PORT) || 3000;
 
 const REST_URL = 'https://rt.ambientweather.net/v1/devices';
 const REALTIME_URL = 'https://rt2.ambientweather.net';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+const TEMPSTICK_URL = 'https://tempstickapi.com/api/v1';
 const RAINFALL_FILE = path.join(__dirname, 'data', 'rainfall.json');
 
 const hasKeys = Boolean(APP_KEY && API_KEY);
+const hasTempStick = Boolean(TEMPSTICK_KEY);
 
 const state = {
   configured: hasKeys,
@@ -43,6 +49,14 @@ const forecast = {
   updatedAt: null,
   error: null,
   loading: false,
+};
+
+const tempstick = {
+  sensors: [],
+  updatedAt: null,
+  error: null,
+  loading: false,
+  configured: hasTempStick,
 };
 
 const sseClients = new Set();
@@ -200,16 +214,13 @@ async function refreshRainfallHistory() {
   if (!mac) return;
 
   rainfall.loading = true;
-  const allReadings = new Map(); // dateutc -> reading
+  const allReadings = new Map();
   let batchError = null;
   let calls = 0;
   const now = Date.now();
   const DAY_MS = 24 * 60 * 60 * 1000;
 
   try {
-    // Fetch 30 fixed 1-day windows. Each batch returns the most recent 288
-    // readings before endDate. This guarantees dense coverage across 30 days
-    // regardless of station reporting frequency.
     for (let i = 0; i < 30; i++) {
       const endDate = new Date(now + DAY_MS - i * DAY_MS);
       let readings;
@@ -235,7 +246,6 @@ async function refreshRainfallHistory() {
       if (i < 29) await sleep(1300);
     }
 
-    // Aggregate max(dailyrainin) per station-local day.
     const dayMax = new Map();
     for (const r of allReadings.values()) {
       if (typeof r.dailyrainin !== 'number') continue;
@@ -332,6 +342,84 @@ function maybeStartForecastRefresh() {
   setInterval(() => fetchForecast(coords.lat, coords.lng), 30 * 60 * 1000);
 }
 
+function normalizeTempStickSensor(s) {
+  const rawTemp =
+    typeof s.last_temp === 'number'
+      ? s.last_temp
+      : typeof s.temp === 'number'
+      ? s.temp
+      : null;
+  const tempF =
+    rawTemp === null
+      ? null
+      : TEMPSTICK_UNIT === 'celsius'
+      ? (rawTemp * 9) / 5 + 32
+      : rawTemp;
+  const humidity =
+    typeof s.last_humidity === 'number'
+      ? s.last_humidity
+      : typeof s.humidity === 'number'
+      ? s.humidity
+      : null;
+  const batt =
+    typeof s.battery_pct === 'number'
+      ? s.battery_pct
+      : typeof s.battery === 'number'
+      ? s.battery
+      : null;
+  const rssi = typeof s.rssi === 'number' ? s.rssi : null;
+  const lastCheckin =
+    s.last_checkin || s.last_updated || s.last_reading || null;
+  return {
+    id: s.sensor_id || s.id || null,
+    name: s.sensor_name || s.name || 'Temp Stick',
+    tempF: tempF !== null ? Number(tempF.toFixed(2)) : null,
+    humidity,
+    batt,
+    rssi,
+    lastCheckin,
+    offline: Boolean(s.offline),
+  };
+}
+
+async function refreshTempStick() {
+  if (!hasTempStick || tempstick.loading) return;
+  tempstick.loading = true;
+  try {
+    const resp = await fetch(`${TEMPSTICK_URL}/sensors/all`, {
+      headers: {
+        'X-API-KEY': TEMPSTICK_KEY,
+        Accept: 'application/json',
+      },
+    });
+    if (!resp.ok) throw new Error(`Temp Stick API returned ${resp.status}`);
+    const body = await resp.json();
+    const items =
+      body?.data?.items ||
+      body?.data?.sensors ||
+      (Array.isArray(body?.data) ? body.data : []) ||
+      [];
+    tempstick.sensors = items.map(normalizeTempStickSensor);
+    tempstick.updatedAt = new Date().toISOString();
+    tempstick.error = null;
+    console.log(`[tempstick] refreshed ${tempstick.sensors.length} sensor(s)`);
+  } catch (err) {
+    tempstick.error = err.message;
+    console.error('[tempstick] fetch failed:', err.message);
+  } finally {
+    tempstick.loading = false;
+  }
+}
+
+function startTempStick() {
+  if (!hasTempStick) {
+    console.warn('[tempstick] TEMPSTICK_API_KEY not set - skipping');
+    return;
+  }
+  refreshTempStick();
+  setInterval(refreshTempStick, 5 * 60 * 1000);
+}
+
 function startRealtime() {
   if (!hasKeys) {
     console.warn(
@@ -399,6 +487,16 @@ app.get('/api/forecast', (req, res) => {
   });
 });
 
+app.get('/api/tempstick', (req, res) => {
+  res.json({
+    sensors: tempstick.sensors,
+    updatedAt: tempstick.updatedAt,
+    loading: tempstick.loading,
+    error: tempstick.error,
+    configured: tempstick.configured,
+  });
+});
+
 app.get('/api/stream', (req, res) => {
   res.set({
     'Content-Type': 'text/event-stream',
@@ -425,8 +523,10 @@ app.listen(PORT, async () => {
     );
   }
   console.log(`[rainfall] station timezone: ${STATION_TZ}`);
+  console.log(`[tempstick] configured: ${hasTempStick} (unit: ${TEMPSTICK_UNIT})`);
   await loadPersistedRainfall();
   fetchRest();
   setInterval(fetchRest, 5 * 60 * 1000);
   startRealtime();
+  startTempStick();
 });

@@ -315,6 +315,73 @@ async function fetchRainfall() {
   }
 }
 
+let tempStickData = null;
+
+function formatCheckin(str) {
+  if (!str) return '';
+  const dt = new Date(str.replace(' ', 'T') + (str.includes('Z') ? '' : 'Z'));
+  if (!Number.isFinite(dt.getTime())) return str;
+  return dt.toLocaleString(undefined, {
+    month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function renderTempStick(data) {
+  tempStickData = data;
+  const container = el('tempstick-cards');
+  const status = el('tempstick-status');
+  if (!container || !status) return;
+
+  if (!data.configured) {
+    status.textContent = 'TEMPSTICK_API_KEY not set';
+  } else if (data.error) {
+    status.textContent = `Error: ${data.error}`;
+  } else if (data.updatedAt) {
+    const dt = new Date(data.updatedAt);
+    status.textContent = `Updated ${dt.toLocaleTimeString()}`;
+  } else if (data.loading) {
+    status.textContent = 'Loading…';
+  } else {
+    status.textContent = '';
+  }
+
+  if (!data.sensors || data.sensors.length === 0) {
+    container.innerHTML = `<div class="forecast-empty">${
+      data.configured ? (data.loading ? 'Loading sensors…' : 'No sensors found') : 'Not configured'
+    }</div>`;
+    return;
+  }
+
+  const metric = units === 'metric';
+  container.innerHTML = data.sensors
+    .map((s) => {
+      const t = isNum(s.tempF) ? temp(s.tempF) : { value: '--', unit: metric ? '°C' : '°F' };
+      const humStr = isNum(s.humidity) ? `Humidity ${r(s.humidity, 0)}%` : '';
+      const battStr = isNum(s.batt) ? `Battery ${r(s.batt, 0)}%` : '';
+      const checkin = formatCheckin(s.lastCheckin);
+      const subParts = [humStr, battStr, checkin ? `Checked in ${checkin}` : '', s.offline ? 'OFFLINE' : ''].filter(Boolean);
+      return `
+        <div class="card${s.offline ? ' card--offline' : ''}">
+          <div class="card__label">${s.name}</div>
+          <div class="card__value">${t.value}<span class="card__unit">${t.unit}</span></div>
+          <div class="card__sub">${subParts.join(' · ')}</div>
+        </div>`;
+    })
+    .join('');
+}
+
+async function fetchTempStick() {
+  try {
+    const resp = await fetch('/api/tempstick');
+    if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`);
+    const data = await resp.json();
+    renderTempStick(data);
+  } catch (err) {
+    console.error('Failed to fetch Temp Stick data', err);
+  }
+}
+
 let latest = null;
 
 function setUnits(next) {
@@ -325,6 +392,7 @@ function setUnits(next) {
   if (latest) render(latest);
   if (forecastData) renderForecast(forecastData);
   if (rainfallData) renderRainfall(rainfallData);
+  if (tempStickData) renderTempStick(tempStickData);
   updateHeroHiLo();
 }
 
@@ -353,5 +421,7 @@ function connect() {
 connect();
 fetchRainfall();
 fetchForecast();
+fetchTempStick();
 setInterval(fetchRainfall, 30 * 1000);
 setInterval(fetchForecast, 60 * 1000);
+setInterval(fetchTempStick, 60 * 1000);

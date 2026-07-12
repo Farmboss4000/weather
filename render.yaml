@@ -15,5 +15,9 @@ services:
         value: ""
       - key: AMBIENT_STATION_TZ
         value: America/Chicago
+      - key: TEMPSTICK_API_KEY
+        value: 7f238f90c8c195df36b61c372b74fea10685328579aa88280e
+      - key: TEMPSTICK_UNIT
+        value: fahrenheit
       - key: NODE_VERSION
         value: "20"
