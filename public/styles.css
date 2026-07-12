@@ -21,6 +21,7 @@
   --shadow: 0 1px 3px rgba(0, 30, 60, 0.06), 0 2px 8px rgba(0, 30, 60, 0.06);
   --shadow-lg: 0 4px 24px rgba(0, 30, 60, 0.14);
   --font: 'Helvetica Neue', Helvetica, Arial, 'Segoe UI', Roboto, sans-serif;
+  --font-title: 'Special Elite', 'Courier New', Courier, 'Monaco', monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -56,17 +57,15 @@ body {
 }
 
 h1 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  font-family: var(--font-title);
+  font-size: 2.1rem;
+  font-weight: 400;
+  letter-spacing: 0.5px;
   color: var(--text-inverse);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
 }
 
-.station-meta {
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.95rem;
-  margin-top: 4px;
-}
+.station-meta { display: none; }
 
 .controls { display: flex; align-items: center; gap: 12px; }
 
@@ -383,7 +382,7 @@ main {
 }
 
 @media (max-width: 600px) {
-  h1 { font-size: 1.35rem; }
+  h1 { font-size: 1.55rem; }
   .hero-temp__value { font-size: 3.8rem; }
   .hero-temp__unit { font-size: 1.4rem; margin-top: 8px; }
   .hero { padding: 24px 22px; }
