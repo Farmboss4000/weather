@@ -346,7 +346,7 @@ main {
   font-variant-numeric: tabular-nums;
 }
 .rainfall-row--dry td { color: var(--text-dim); }
-.rainfall-row--wet .rain-value { color: var(--accent); font-weight: 700; }
+.rainfall-row--wet .rain-value { color: var(--good); font-weight: 700; }
 .rainfall-empty { color: var(--text-dim); text-align: center; padding: 24px; }
 
 .error {
