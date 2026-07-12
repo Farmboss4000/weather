@@ -1,0 +1,127 @@
+{
+  "days": [
+    {
+      "date": "2026-07-12",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-11",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-10",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-09",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-08",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-07",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-06",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-05",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-04",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-03",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-02",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-07-01",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-30",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-29",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-28",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-27",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-26",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-25",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-24",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-23",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-22",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-21",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-20",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-19",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-18",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-17",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-16",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-15",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-14",
+      "rainfall_in": 0
+    },
+    {
+      "date": "2026-06-13",
+      "rainfall_in": 0
+    }
+  ],
+  "updatedAt": "2026-07-12T14:48:03.487Z",
+  "timezone": "America/Chicago",
+  "source": "github-actions:refresh-rainfall"
+}
