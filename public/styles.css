@@ -329,8 +329,6 @@ main {
 
 .rainfall-scroll {
   overflow-x: auto;
-  max-height: 520px;
-  overflow-y: auto;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
@@ -352,9 +350,6 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.6px;
   background: #eef4fa;
-  position: sticky;
-  top: 0;
-  z-index: 1;
 }
 .rainfall-table tbody tr:nth-child(even) { background: var(--stripe); }
 .rainfall-table tbody tr:last-child td { border-bottom: none; }
