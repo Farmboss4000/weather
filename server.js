@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import ioClient from 'socket.io-client';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,6 +16,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const REST_URL = 'https://rt.ambientweather.net/v1/devices';
 const REALTIME_URL = 'https://rt2.ambientweather.net';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+const RAINFALL_FILE = path.join(__dirname, 'data', 'rainfall.json');
 
 const hasKeys = Boolean(APP_KEY && API_KEY);
 
@@ -33,6 +35,7 @@ const rainfall = {
   error: null,
   loading: false,
   timezone: STATION_TZ,
+  source: null,
 };
 
 const forecast = {
@@ -167,6 +170,29 @@ async function fetchDeviceHistory(mac, endDate, limit = 288) {
   throw new Error('Ambient history: retries exhausted after repeated 429s');
 }
 
+async function loadPersistedRainfall() {
+  try {
+    const content = await readFile(RAINFALL_FILE, 'utf-8');
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed.days) && parsed.days.length > 0) {
+      rainfall.days = parsed.days;
+      rainfall.updatedAt = parsed.updatedAt || null;
+      rainfall.timezone = parsed.timezone || STATION_TZ;
+      rainfall.source = parsed.source || 'file';
+      rainfall.error = null;
+      console.log(
+        `[rainfall] seeded ${parsed.days.length} days from data/rainfall.json (updated ${parsed.updatedAt || 'unknown'})`
+      );
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.warn('[rainfall] could not load persisted file:', err.message);
+    } else {
+      console.log('[rainfall] no persisted file yet; will populate from Ambient');
+    }
+  }
+}
+
 async function refreshRainfallHistory() {
   if (rainfall.loading) return;
   if (!hasKeys) return;
@@ -222,6 +248,7 @@ async function refreshRainfallHistory() {
     rainfall.days = days;
     rainfall.updatedAt = new Date().toISOString();
     rainfall.error = batchError ? `Partial result: ${batchError}` : null;
+    rainfall.source = 'runtime';
     console.log(
       `[rainfall] refreshed ${days.length} days from ${calls} API call(s)` +
         (batchError ? ` (partial: ${batchError})` : '')
@@ -349,6 +376,7 @@ app.get('/api/rainfall', (req, res) => {
     loading: rainfall.loading,
     timezone: rainfall.timezone,
     error: rainfall.error,
+    source: rainfall.source,
   });
 });
 
@@ -380,7 +408,7 @@ app.get('/api/stream', (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true, configured: hasKeys }));
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Kestrel weather dashboard running on http://localhost:${PORT}`);
   if (!hasKeys) {
     console.warn(
@@ -388,6 +416,7 @@ app.listen(PORT, () => {
     );
   }
   console.log(`[rainfall] station timezone: ${STATION_TZ}`);
+  await loadPersistedRainfall();
   fetchRest();
   setInterval(fetchRest, 5 * 60 * 1000);
   startRealtime();

@@ -1,0 +1,43 @@
+name: Refresh Rainfall
+
+on:
+  # 07:30 UTC daily = ~01:30 America/Chicago, safely past local midnight
+  # so the previous day's dailyrainin has finalized before Ambient resets it.
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch 30-day rainfall history
+        env:
+          AMBIENT_APPLICATION_KEY: ${{ secrets.AMBIENT_APPLICATION_KEY }}
+          AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
+          AMBIENT_DEVICE_MAC: ${{ secrets.AMBIENT_DEVICE_MAC }}
+          AMBIENT_STATION_TZ: America/Chicago
+        run: node scripts/refresh-rainfall.mjs
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/rainfall.json
+          if git diff --staged --quiet; then
+            echo "No changes."
+          else
+            git commit -m "chore: refresh 30-day rainfall history"
+            git push
+          fi
