@@ -257,10 +257,27 @@ main {
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.95rem;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 .hero-detail strong { color: var(--text-inverse); font-weight: 700; }
+.hero-highlow {
+  display: flex;
+  gap: 16px;
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+.hero-hilo__label {
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 600;
+  margin-right: 2px;
+}
+.hero-hilo--lo .hero-hilo__label { color: rgba(255, 255, 255, 0.55); }
 .hero-feels { font-size: 1.05rem; }
-.hero-updated { font-size: 0.8rem; margin-top: 6px; color: rgba(255,255,255,0.72); }
+.hero-updated { font-size: 0.8rem; color: rgba(255,255,255,0.72); }
 
 .module {
   background: var(--card-bg);

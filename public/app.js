@@ -72,6 +72,24 @@ function buildCards(d) {
   return cards;
 }
 
+function updateHeroHiLo() {
+  const today = forecastData?.days?.[0];
+  const hiEl = el('hero-hi');
+  const loEl = el('hero-lo');
+  if (!hiEl || !loEl) return;
+  if (!today) return;
+  const metric = units === 'metric';
+  const unit = metric ? '°C' : '°F';
+  const hi = isNum(today.tempMaxF)
+    ? (metric ? r(fToC(today.tempMaxF), 0) : r(today.tempMaxF, 0))
+    : '--';
+  const lo = isNum(today.tempMinF)
+    ? (metric ? r(fToC(today.tempMinF), 0) : r(today.tempMinF, 0))
+    : '--';
+  hiEl.textContent = `${hi}${unit}`;
+  loEl.textContent = `${lo}${unit}`;
+}
+
 function render(stateData) {
   const errEl = el('error');
   if (!stateData.configured) {
@@ -118,6 +136,8 @@ function render(stateData) {
     const dt = new Date(stateData.updatedAt);
     el('hero-updated').textContent = `Updated ${dt.toLocaleTimeString()} · ${dt.toLocaleDateString()}`;
   }
+
+  updateHeroHiLo();
 
   const container = el('cards');
   container.innerHTML = '';
@@ -218,6 +238,8 @@ function renderForecast(data) {
     })
     .join('');
   grid.innerHTML = html;
+
+  updateHeroHiLo();
 }
 
 async function fetchForecast() {
@@ -303,6 +325,7 @@ function setUnits(next) {
   if (latest) render(latest);
   if (forecastData) renderForecast(forecastData);
   if (rainfallData) renderRainfall(rainfallData);
+  updateHeroHiLo();
 }
 
 el('unit-imperial').addEventListener('click', () => setUnits('imperial'));
