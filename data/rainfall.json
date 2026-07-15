@@ -1,6 +1,10 @@
 {
   "days": [
     {
+      "date": "2026-07-15",
+      "rainfall_in": 0
+    },
+    {
       "date": "2026-07-14",
       "rainfall_in": 0
     },
@@ -115,13 +119,9 @@
     {
       "date": "2026-06-16",
       "rainfall_in": 0
-    },
-    {
-      "date": "2026-06-15",
-      "rainfall_in": 0
     }
   ],
-  "updatedAt": "2026-07-14T09:27:43.905Z",
+  "updatedAt": "2026-07-15T09:30:16.973Z",
   "timezone": "America/Chicago",
   "source": "github-actions:refresh-rainfall"
 }
